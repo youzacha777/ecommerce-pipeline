@@ -1,0 +1,12 @@
+#  카프카
+kafka-python==2.0.2
+
+# DB 연결 관련
+psycopg2-binary==2.9.9
+
+# 알림 관련
+requests==2.31  # Slack 알림
+slackclient==2.9.4  # Slack API 클라이언트
+
+# 유틸
+python-dotenv==1.0.1
