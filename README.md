@@ -76,7 +76,7 @@
    - 특징: 실시간 운영 가시성 확보, 운영 안정성 강화, 확장성/유연성 제공
 
 - **구조도**  
-![시스템 아키텍쳐](/images/architechture.png)
+![시스템 아키텍쳐](/images/architechture.jepg)
 
 ---
 
