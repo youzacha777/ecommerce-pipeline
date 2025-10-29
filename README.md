@@ -146,4 +146,22 @@
 | 데이터 적재 정확도 | CDC 후 BigQuery 레코드 일치율 | 99.5% 이상 | 99.9% |
 
 - KPI 관련 그래프 예시
-  - 이벤트 처리 지연 시간, 메시지 처리 속도, CDC 전송 지연, 알림 반응 시간, 데이터 적재 정확도 그래프 포함
+  - 이벤트 처리 지연 시간
+  
+    ![이벤트 처리 지연 시간](/images/grafana_dashboard_img/이벤트처리지연시간.png)
+  - 메시지 처리 속도
+  
+    ![메시지 처리 속도](/images/grafana_dashboard_img/메시지처리속도.png)
+  - CDC 전송 지연
+  
+    ![CDC 전송 지연 시간](/images/grafana_dashboard_img/CDC전송지연시간.png)
+  - 알림 반응 시간
+  
+    ![알림 반응 시간](/images/grafana_dashboard_img/알림반응시간.png)
+  - 데이터 적재 정확도
+  
+    ![데이터 적재 정확도](/images/grafana_dashboard_img/데이터적재정확도.png)
+
+- **Notion**
+
+  - https://www.notion.so/E-Commerce-294ad6468ffc80758528c2f793dd3c3e?source=copy_link
