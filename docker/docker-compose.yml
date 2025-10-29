@@ -1,0 +1,523 @@
+version: "3.8"
+
+services:
+  # Zookeeper 서비스 - Kafka 메타데이터 관리
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+    networks:
+      - ecommerce_pipeline_network
+    healthcheck:
+      test: echo srvr | nc zookeeper 2181 || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Kafka 서비스 - 메시지 브로커
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://:29092,PLAINTEXT_HOST://:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - ecommerce_pipeline_network
+    healthcheck:
+      test: kafka-topics --bootstrap-server kafka:29092 --list || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./kafka-init:/kafka-init
+    entrypoint: ["bash", "-c", "/kafka-init/create-topics.sh"]
+    networks:
+      - ecommerce_pipeline_network
+
+  # Kafka UI - Kafka 클러스터 관리 웹 인터페이스
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - ecommerce_pipeline_network
+
+  kafka-connect:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.connect
+    container_name: kafka-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra:
+        condition: service_healthy
+      postgres: 
+        condition: service_healthy 
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: "connect-cluster"
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_TOPIC_REPLICATION_FACTOR: 1
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_PLUGIN_PATH: /kafka/connect/,/usr/share/confluent-hub-components/
+    volumes:
+      - ./connectors:/connectors
+    networks:
+      - ecommerce_pipeline_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/"]
+      interval: 20s
+      retries: 10
+      start_period: 30s
+    entrypoint: ["/bin/bash", "/connectors/entrypoint.sh"] 
+    
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: event_user
+      POSTGRES_PASSWORD: eventpassword
+      POSTGRES_DB: event_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - ecommerce_pipeline_network
+    healthcheck:
+      test: pg_isready -U event_user -d event_db
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+  # PGAdmin - PostgreSQL 관리 웹 인터페이스
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - ecommerce_pipeline_network
+
+  cassandra:
+    image: cassandra:4.1
+    container_name: cassandra
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    networks:
+      - ecommerce_pipeline_network
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES'"]
+      interval: 15s
+      timeout: 20s
+      retries: 5
+      
+  cassandra-init:
+    image: cassandra:4.1
+    container_name: cassandra-init
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra-init:/cassandra-init
+    entrypoint: ["bash", "-c", "/cassandra-init/00-init-db.sh"]
+    networks:
+      - ecommerce_pipeline_network
+
+  java-streams:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.java_streams
+    container_name: java-streams
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: ["java", "-jar", "user-event-streams-app.jar"]
+    volumes:
+      - ../logs/java_streams:/app/logs
+      - ../java_src/state:/tmp/kafka-streams
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      INPUT_TOPIC: user_events
+      ALERT_TOPIC: alert_events
+      ORDER_TOPIC: order_events
+      APPLICATION_ID: user-event-streams-app
+    networks:
+      - ecommerce_pipeline_network
+    restart: on-failure
+
+  event-generator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.event_generator
+    container_name: event-generator
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONUNBUFFERED=1
+      - EVENT_ACTIVE=1
+      - EVENT_ACTIVE_FLAG=/app/flags/event_active.flag
+    volumes:
+      - ../python_src:/app
+      - ../logs:/app/logs
+      # - ../flags:/app/flags
+      - shared_flags:/app/flags
+    networks:
+      - ecommerce_pipeline_network
+    restart: on-failure
+
+  cancel-generator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cancel_generator
+    container_name: cancel-generator
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONUNBUFFERED=1
+      - EVENT_ACTIVE=1
+      - EVENT_ACTIVE_FLAG=/app/flags/cancel_active.flag
+    volumes:
+      - ../python_src:/app
+      - ../logs:/app/logs
+      # - ../flags:/app/flags
+      - shared_flags:/app/flags
+    networks:
+      - ecommerce_pipeline_network
+    restart: on-failure
+
+  alert-addcart:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.main_alert_addcart_consumer
+    container_name: alert-addcart
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONUNBUFFERED=1
+      - EVENT_ACTIVE=1
+      - EVENT_ACTIVE_FLAG=/app/flags/event_active.flag
+    volumes:
+      - ../python_src:/app
+      - ../logs:/app/logs
+      # - ../flags:/app/flags
+      - shared_flags:/app/flags
+    networks:
+      - ecommerce_pipeline_network
+    restart: on-failure
+
+  save-addcart:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.main_save_addcart_consumer
+    container_name: save-addcart
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONUNBUFFERED=1
+      - EVENT_ACTIVE=1
+      - EVENT_ACTIVE_FLAG=/app/flags/event_active.flag
+    volumes:
+      - ../python_src:/app
+      - ../logs:/app/logs
+      # - ../flags:/app/flags
+      - shared_flags:/app/flags
+    networks:
+      - ecommerce_pipeline_network
+    restart: on-failure
+
+  save-purchase:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.main_save_purchase_consumer
+    container_name: save-purchase
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - PYTHONUNBUFFERED=1
+      - EVENT_ACTIVE=1
+      - EVENT_ACTIVE_FLAG=/app/flags/event_active.flag
+    volumes:
+      - ../python_src:/app
+      - ../logs:/app/logs
+      # - ../flags:/app/flags
+      - shared_flags:/app/flags
+    networks:
+      - ecommerce_pipeline_network
+    restart: on-failure
+  
+  airflow-init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.airflow
+    container_name: airflow-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://event_user:eventpassword@postgres:5432/event_db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__SECRET_KEY=supersecret123
+      - _AIRFLOW_DB_UPGRADE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
+      - PYTHONPATH=/opt/airflow
+    command: db init
+    networks:
+      - ecommerce_pipeline_network
+
+  airflow-webserver:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.airflow
+    container_name: airflow-webserver
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    ports:
+      - "8070:8080"
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://event_user:eventpassword@postgres:5432/event_db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__BASE_URL=http://localhost:8070
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+      - AIRFLOW__WEBSERVER__SECRET_KEY=supersecret123
+      - PYTHONPATH=/opt/airflow
+    volumes:
+      - ../airflow/dags:/opt/airflow/dags
+    command: webserver
+    networks:
+      - ecommerce_pipeline_network
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  airflow-scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.airflow
+    container_name: airflow-scheduler
+    depends_on:
+      airflow-webserver:
+        condition: service_healthy
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://event_user:eventpassword@postgres:5432/event_db
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__SECRET_KEY=supersecret123
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+      - AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL=10
+      - PYTHONPATH=/opt/airflow
+    volumes:
+      - ../airflow/dags:/opt/airflow/dags
+      - ../python_src:/opt/airflow/python_src
+      - ../python_src/notifier:/opt/airflow/notifier
+      - shared_flags:/app/flags
+    command: scheduler
+    networks:
+      - ecommerce_pipeline_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    depends_on:
+      node-exporter:
+        condition: service_started
+      cadvisor:
+        condition: service_started
+      kafka-exporter:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:9090/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - ecommerce_pipeline_network
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - ecommerce_pipeline_network
+
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8089:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+    command:
+      - '--docker_only'
+      - '--housekeeping_interval=10s'
+      - '--store_container_labels=false'
+      - '--allow_dynamic_housekeeping=true'
+      - '--disable_metrics=disk,diskIO,hugetlb'
+    privileged: true
+    networks:
+      - ecommerce_pipeline_network
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command:
+      - '--kafka.server=kafka:29092'
+    ports:
+      - "9308:9308"
+    networks:
+      - ecommerce_pipeline_network
+
+  custom-exporter:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile.custom_exporter
+    container_name: custom-exporter
+    ports:
+      - "8000:8000"
+    networks:
+      - ecommerce_pipeline_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - ecommerce_pipeline_network
+
+
+networks:
+  ecommerce_pipeline_network:
+    driver: bridge
+
+volumes:
+  zookeeper_data:
+  zookeeper_log:
+  kafka_data:
+  postgres_data:
+  pgadmin_data:
+  cassandra_data:
+  shared_flags:
+  prometheus_data:
+  grafana_data:

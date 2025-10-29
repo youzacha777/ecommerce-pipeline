@@ -1,0 +1,25 @@
+{
+  "name": "postgres-debezium-source",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "debezium",
+    "database.password": "dbzpassword",
+    "database.dbname": "event_db",
+    "database.server.name": "dbserver1",
+    "slot.name": "debezium_slot",
+    "publication.name": "debezium_pub",
+    "publication.autocreate.mode": "disabled",
+    "table.include.list": "public.cart_table,public.purchase_table,public.cancel_table",
+    "tombstones.on.delete": "true",
+    "include.schema.changes": "false",
+    "snapshot.mode": "initial",
+    "topic.prefix": "cdc",
+    "heartbeat.interval.ms": "10000",
+    "max.batch.size": "2048",
+    "poll.interval.ms": "5000"
+  }
+}
+

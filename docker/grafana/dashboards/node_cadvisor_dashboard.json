@@ -1,0 +1,140 @@
+{
+  "id": null,
+  "title": "Node & cAdvisor Full Dashboard",
+  "tags": ["node", "cadvisor", "prometheus"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Node Overview",
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Node CPU Usage (%)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "100 - (avg by (instance)(rate(node_cpu_seconds_total{mode=\"idle\"}[2m])) * 100)",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      },
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 }
+    },
+    {
+      "type": "stat",
+      "title": "Node Memory Usage (%)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 }
+    },
+    {
+      "type": "stat",
+      "title": "Disk Usage (%)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "(node_filesystem_size_bytes{fstype!=\"tmpfs\"} - node_filesystem_free_bytes{fstype!=\"tmpfs\"}) / node_filesystem_size_bytes{fstype!=\"tmpfs\"} * 100",
+          "legendFormat": "{{device}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 }
+    },
+    {
+      "type": "graph",
+      "title": "CPU Usage per Container",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{image!=\"\"}[2m]) * 100",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 5, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Memory Usage per Container (MB)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "container_memory_usage_bytes{image!=\"\"} / 1024 / 1024",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 5, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Disk Read/Write per Node",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(node_disk_read_bytes_total[2m])",
+          "legendFormat": "{{device}} Read"
+        },
+        {
+          "expr": "rate(node_disk_written_bytes_total[2m])",
+          "legendFormat": "{{device}} Write"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 13, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Network I/O per Container",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(container_network_receive_bytes_total{image!=\"\"}[2m])",
+          "legendFormat": "{{name}} (in)"
+        },
+        {
+          "expr": "rate(container_network_transmit_bytes_total{image!=\"\"}[2m])",
+          "legendFormat": "{{name}} (out)"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 13, "w": 12, "h": 8 }
+    },
+    {
+      "type": "graph",
+      "title": "Node Load Average",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "node_load1",
+          "legendFormat": "{{instance}} (1m)"
+        },
+        {
+          "expr": "node_load5",
+          "legendFormat": "{{instance}} (5m)"
+        },
+        {
+          "expr": "node_load15",
+          "legendFormat": "{{instance}} (15m)"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 21, "w": 24, "h": 8 }
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "graph",
+      "title": "토픽별 누적 메시지 수",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (topic) (kafka_topic_partition_current_offset)",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "graph",
+      "title": "토픽별 1분 메시지 증가량",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (topic) (increase(kafka_topic_partition_current_offset[1m]))",
+          "legendFormat": "{{topic}}",
+          "refId": "B"
+        }
+      ],
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}
+    },
+    {
+      "type": "graph",
+      "title": "토픽별 파티션 수",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (topic) (kafka_topic_partitions)",
+          "legendFormat": "{{topic}}",
+          "refId": "C"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}
+    },
+    {
+      "type": "graph",
+      "title": "Consumer 그룹별 Lag",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (topic, group) (kafka_consumergroup_lag)",
+          "legendFormat": "{{topic}} - {{group}}",
+          "refId": "D"
+        }
+      ],
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}
+    }
+  ],
+  "schemaVersion": 36,
+  "title": "Kafka 토픽 모니터링",
+  "version": 1,
+  "refresh": "10s"
+}

@@ -1,0 +1,35 @@
+{
+  "name": "order-events-cassandra-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.cassandra.CassandraSinkConnector",
+    "tasks.max": "1",
+    "topics": "order_events",
+    "cassandra.contact.points": "cassandra",
+    "cassandra.port": "9042",
+    "cassandra.keyspace": "user_events_ks",
+    "cassandra.local.datacenter": "datacenter1",
+    "topic.order_events.mapping": "order_id=order_id,user_id=user_id,user_name=user_name,email=email,event_type=event_type,timestamp=timestamp,product_id=product_id,quantity=quantity,price=price,total=total,status=status",
+    "consistencyLevel": "LOCAL_QUORUM",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "transforms": "SetKey,ConvertTimestamp",
+    "transforms.SetKey.type": "org.apache.kafka.connect.transforms.ValueToKey",
+    "transforms.SetKey.fields": "order_id",
+    "transforms.ConvertTimestamp.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.ConvertTimestamp.field": "timestamp",
+    "transforms.ConvertTimestamp.target.type": "Timestamp",
+    "transforms.ConvertTimestamp.format": "yyyy-MM-dd'T'HH:mm:ssX",
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "confluent.topic.bootstrap.servers": "kafka:29092",
+    "errors.deadletterqueue.topic.name": "dlq-order-events",
+    "errors.deadletterqueue.context.headers.enable": "true",
+    "errors.deadletterqueue.topic.replication.factor": "1",
+    "offset.storage.replication.factor": "1",
+    "status.storage.replication.factor": "1",
+    "confluent.topic.replication.factor": "1"
+  }
+}
+

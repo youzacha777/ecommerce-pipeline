@@ -1,0 +1,14 @@
+# Java 17 이미지 사용
+FROM eclipse-temurin:17-jdk-jammy
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# Maven으로 빌드된 fat jar 복사
+COPY java_src/target/user-event-streams-1.0-SNAPSHOT.jar /app/user-event-streams-app.jar
+
+# 실행 명령
+ENTRYPOINT ["java", "-jar", "/app/user-event-streams-app.jar"]
+
+
+

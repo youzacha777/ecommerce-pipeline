@@ -1,0 +1,36 @@
+{
+  "name": "bigquery-sink-connector",
+  "config": {
+    "connector.class": "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector",
+    "topics": "cdc.public.purchase_table,cdc.public.cancel_table,cdc.public.cart_table",
+    "project": "ecommerce-pipeline-474407",
+    "datasets": ".*=ecommerce_dataset",
+    "defaultDataset": "ecommerce_dataset",
+    "autoCreateTables": "true",
+    "sanitizeTopics": "true",
+    "keyfile": "/connectors/secrets/ecommerce-pipeline-474407-d9d295abf06d.json",
+
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true",
+
+    "transforms": "unwrap,tsConvert",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.unwrap.add.fields": "op,ts_ms",
+
+    "transforms.tsConvert.type": "org.apache.kafka.connect.transforms.TimestampConverter$Value",
+    "transforms.tsConvert.field": "ts_ms",
+    "transforms.tsConvert.target.type": "Timestamp",
+    "transforms.tsConvert.format": "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+
+    "tasks.max": "1",
+    "errors.tolerance": "all",
+    "errors.retry.timeout": "60000",
+    "errors.retry.delay.max.ms": "10000",
+
+    "tablePartitioningType": "DAY",
+    "tablePartitioningField": "ts_ms",
+    "tablePartitioningRequirePartitionFilter": "false"
+  }
+}

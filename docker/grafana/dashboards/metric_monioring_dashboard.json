@@ -1,0 +1,171 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "graph",
+      "title": "이벤트 처리 지연 시간 (Kafka → Consumer)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(kafka_consumergroup_lag[1m])",
+          "legendFormat": "{{group}} - {{topic}}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "red", "value": 2}
+            ]
+          },
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "type": "graph",
+      "title": "메시지 처리율 (events/sec)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(kafka_consumergroup_lag[1m]))",
+          "legendFormat": "Total events/sec",
+          "refId": "B"
+        }
+      ],
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "green", "value": 1000}
+            ]
+          },
+          "unit": "events/s"
+        }
+      }
+    },
+    {
+      "type": "graph",
+      "title": "CDC 전송 지연 (Postgres → BigQuery)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "cdc_delay_seconds",
+          "legendFormat": "CDC Delay",
+          "refId": "C"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "red", "value": 5}
+            ]
+          },
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "type": "graph",
+      "title": "알림 반응 시간 (시각적 확인용)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "slack_alert_response_seconds",
+          "legendFormat": "Alert Response",
+          "refId": "D"
+        }
+      ],
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": 0},
+              {"color": "red", "value": 3}
+            ]
+          },
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "데이터 적재 정확도 (%)",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "data_accuracy_percent",
+          "refId": "E"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 16, "w": 24, "h": 8},
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 100,
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": 0},
+              {"color": "green", "value": 99.9}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "graph",
+      "title": "토픽별 누적 메시지 수",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (topic) (kafka_topic_partition_current_offset)",
+          "legendFormat": "{{topic}}",
+          "refId": "F"
+        }
+      ],
+      "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8}
+    },
+    {
+      "type": "graph",
+      "title": "Consumer 그룹별 Lag",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum by (topic, group) (kafka_consumergroup_lag)",
+          "legendFormat": "{{topic}} - {{group}}",
+          "refId": "G"
+        }
+      ],
+      "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8}
+    }
+  ],
+  "schemaVersion": 36,
+  "title": "전체 사용자 이벤트 파이프라인 모니터링 (Threshold 경고 포함)",
+  "version": 1,
+  "refresh": "10s"
+}

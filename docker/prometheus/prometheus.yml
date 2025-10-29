@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 10s  # 기본 메트릭 수집 주기
+
+scrape_configs:
+  # Prometheus 자기 자신
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  # Node Exporter - 서버 CPU, 메모리 등
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # cAdvisor - Docker 컨테이너 리소스 모니터링
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Kafka Exporter - Kafka 메트릭
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+  
+  # 커스텀 메트릭
+  - job_name: 'custom_metrics'
+    static_configs:
+      - targets: ['custom-exporter:8000']
+

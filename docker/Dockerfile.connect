@@ -1,0 +1,30 @@
+# ----------------------------------------
+# Kafka Connect 기본 이미지
+# ----------------------------------------
+FROM confluentinc/cp-kafka-connect:7.4.0
+
+
+# ----------------------------------------
+# 환경 변수 설정
+# ----------------------------------------
+# ENV CONNECT_PLUGIN_PATH=/usr/share/confluent-hub-components/
+
+
+# ----------------------------------------
+# 필수 커넥터 설치 (로컬 복사 방식)
+# ----------------------------------------
+# Debezium JAR를 lib에서 최상위로 이동
+
+# 필요한 커넥터 설치
+# RUN confluent-hub install --no-prompt debezium/debezium-connector-postgresql:3.1.2
+
+
+COPY docker/connector-plugins/debezium-connector-postgresql/ /usr/share/confluent-hub-components/debezium-connector-postgres/
+COPY docker/connector-plugins/confluentinc-kafka-connect-cassandra-2.0.12 /usr/share/confluent-hub-components/confluentinc-kafka-connect-cassandra
+COPY docker/connector-plugins/wepay-kafka-connect-bigquery-2.5.7 /usr/share/confluent-hub-components/wepay-kafka-connect-bigquery
+
+# ----------------------------------------
+# 커넥터 JSON 파일 및 entrypoint.sh 복사 (단일화)
+# ----------------------------------------
+
+CMD ["/etc/confluent/docker/run"] 
